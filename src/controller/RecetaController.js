@@ -102,13 +102,8 @@ class RecetaController {
   // Crear una nueva receta
   crearRecetaPersonalizada = async (req, res) => {
     const userId = req.user.id;
-    console.log(req.body);
-  const {
-  name,
-  ingredients,
-  steps,
-} = req.body;
-
+    console.log("Request body:", req.body);
+    const { name, ingredients, steps } = req.body;
 
     try {
       if (!name || typeof name !== "string" || name.trim() === "") {
@@ -137,6 +132,8 @@ class RecetaController {
         .doc(String(userId))
         .collection("creadas");
       await recetarioRef.doc(recetaId).set(recetaPersonalizada);
+
+      console.log("Receta personalizada creada:", recetaPersonalizada);
 
       res.status(200).json({
         success: true,
@@ -186,6 +183,7 @@ class RecetaController {
 
       const userData = docSnap.data();
       const recetaTemporal = userData.recetaTemporal;
+      console.log(recetaTemporal);
 
       if (!recetaTemporal) {
         return res
@@ -211,6 +209,7 @@ class RecetaController {
       const now = new Date();
       const fechaActual = now.toISOString().split("T")[0]; // Obtener la fecha en formato yyyy-MM-dd
       const recetaId = `${recetaTemporal.name}_${fechaActual}`;
+      console.log(recetaId);
 
       const recetasRef = db
         .collection("usuarios")
@@ -224,15 +223,13 @@ class RecetaController {
           .doc(String(userId))
           .collection("favoritas");
         await favRef.doc(recetaId).set(recetaPuntuada);
-        console.log("Receta guardada en favoritos exitosamente! ${recetaId}");
+        console.log(`Receta guardada en favoritos exitosamente! ${recetaId}`);
       }
 
       // Anular el campo recetaTemporal en el documento del usuario
-      await userDocRef.update({
-        recetaTemporal: null,
-      });
+      await userDocRef.update({ recetaTemporal: null });
 
-      console.log("Receta agregada al historial exitosamente! ${recetaId}");
+      console.log(`Receta agregada al historial exitosamente! ${recetaId}`);
       res.status(200).json({
         success: true,
         message: "Receta puntuada, stock actualizado si correspondía",
