@@ -5,6 +5,7 @@ class ComensalController {
   // Método para agregar un comensal a la colección grupoFamiliar de un usuario
   agregarComensal = async (req, res) => {
     const userId = req.user.id;
+    console.log(userId);
     if (!userId) {
       console.error("userId is null or undefined");
       return res.status(400).json({ error: "Invalid user ID" });
@@ -15,12 +16,12 @@ class ComensalController {
     try {
       const personaReq = { nombre, apellido, edad, restricciones };
       const personaResult = await PersonaController.crearPersona(personaReq);
+      console.log(personaResult);
       if (personaResult.status !== 201) {
         return res.status(personaResult.status).json({ error: personaResult.error });
       }
 
-      const persona = personaResult.data;
-
+      const persona = personaResult;
       // Agregar persona a la colección grupoFamiliar del usuario
       const comensalesRef = db
         .collection("usuarios")
