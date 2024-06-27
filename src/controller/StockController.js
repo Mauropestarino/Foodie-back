@@ -6,12 +6,18 @@ class StockController {
 
     const userId = req.user.id;
     const { ean, tipoProducto, cantidad, unidad, alerta, unidadMedida } = req.body;
+    console.log(`ean ${ean}`);
+    console.log(`tipoProducto ${tipoProducto}`);
+    console.log(`cantidad ${cantidad}`);
+    console.log(`unidad ${unidad}`);
+    console.log(`alerta ${alerta}`);
+    console.log(`unidadMedida ${unidadMedida}`);
 
-    if (!userId || !ean || !tipoProducto || !cantidad || !unidad || !alerta) {
+    if (!userId || !ean || !tipoProducto || !cantidad || !unidad ) {
       console.log("Datos incompletos en la solicitud");
       return res.status(400).json({ error: "Todos los campos son requeridos" });
     }
-
+    
     try {
       await validarValor(unidad);
       await validarValor(cantidad);
@@ -334,7 +340,14 @@ class StockController {
 export default new StockController();
 
 const validarValor = (variable) => {
-  if (!Number.isInteger(variable) || variable <= 0) {
+  try {
+    variable = parseInt(variable)
+  } catch {
+    throw new Error(
+      "La cantidad del producto no se pudo parsear a entero."
+    );
+  }
+  if (variable <= 0) {
     throw new Error(
       "La cantidad del producto debe ser un número entero positivo."
     );
