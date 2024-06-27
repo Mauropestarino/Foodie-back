@@ -254,88 +254,113 @@ class StockController {
     }
   }
 
-  async consumirProductos(receta) {
-    const userId = receta.userId;
-    let productosNoConsumidos = [];
+    async consumirProductos(receta) {
+      const userId = receta.userId;
+      let productosNoConsumidos = [];
+      let productosAConsumir = []
+      try {
+        for (const ingrediente of receta.ingredients) {
+          let { description: nombreProducto, quantity: cantidad, unit: unidad } = ingrediente;
+          cantidad = parseInt(cantidad)
 
-    try {
-      for (const ingrediente of receta.ingredients) {
-        const { description: nombreProducto, quantity: cantidad, unit: unidad } = ingrediente;
+          // Validar la cantidad
+          validarProductoParaConsumo({ cantidad });
 
-        // Validar la cantidad
-        validarProductoParaConsumo({ cantidad });
+          // Buscar el producto en el stock del usuario
+          const productoRef = db
+            .collection("usuarios")
+            .doc(String(userId))
+            .collection("stock")
+            .doc(nombreProducto);
 
-        // Buscar el producto en el stock del usuario
-        const productoRef = db
-          .collection("usuarios")
-          .doc(String(userId))
-          .collection("stock")
-          .doc(nombreProducto);
+          const docSnap = await productoRef.get();
 
-        const docSnap = await productoRef.get();
+          if (!docSnap.exists) {
+            console.log(`${nombreProducto} no se encuentra en el stock`)
+            productosNoConsumidos.push({ nombre: nombreProducto, cantidad, unidadMedida: unidad });
+          continue;
+          }
 
-        if (!docSnap.exists) {
-          console.log(`${nombreProducto} no se encuentra en el stock`)
-          productosNoConsumidos.push({ nombre: nombreProducto, cantidad, unidadMedida: unidad });
-        continue;
+          const productoExistente = docSnap.data();
+
+          // Verificar si la cantidad solicitada es menor o igual a la cantidad en stock
+          if (cantidad > productoExistente.cantidad) {
+            console.log
+              (`Cantidad solicitada de ${nombreProducto} (${cantidad}) es mayor que la cantidad en stock (${productoExistente.cantidad}.`)
+                    productosNoConsumidos.push({ nombre: nombreProducto, cantidad, unidadMedida: unidad });
+          continue;
+
+          }
+
+          // Verificar que el nombre del producto coincida con un documento en la colección productos
+          const productoDoc = await db
+            .collection("productos")
+            .doc(nombreProducto)
+            .get();
+          if (!productoDoc.exists) {
+            console.log(`${nombreProducto} no se encuentra en la coleccion de productos`)
+            productosNoConsumidos.push({ nombre: nombreProducto, cantidad, unidadMedida: unidad });
+          continue;
+          
+          }
+          else {
+            productosAConsumir.push({
+              nombre: nombreProducto,
+              cantidad,
+              unidadMedida: unidad,
+            });
+          }
+        }
+        console.log("productos a consumir");
+        console.log(productosAConsumir);
+        // Si todas las validaciones pasan, realizar la resta de los productos
+        for (const ingrediente of productosAConsumir) {
+          let { nombre: nombreProducto, cantidad } = ingrediente;
+          cantidad = parseInt(cantidad);
+
+          console.log(
+            `Consumiendo ${ingrediente.quantity} ${ingrediente.unit} de ${ingrediente.description}`
+          );
+
+          const productoRef = db
+            .collection("usuarios")
+            .doc(String(userId))
+            .collection("stock")
+            .doc(nombreProducto);
+
+          const docSnap = await productoRef.get();
+          const productoExistente = docSnap.data();
+          const nuevaCantidad = productoExistente.cantidad - cantidad;
+          console.log(productoExistente);
+          console.log(cantidad);
+          console.log(nuevaCantidad);
+          if (nuevaCantidad <= 0) {
+            await productoRef.delete();
+            console.log(
+              `Producto ${nombreProducto} agotado. Eliminado del stock del usuario ${userId}.`
+            );
+          } else {
+            await productoRef.update({
+              cantidad: nuevaCantidad,
+              ultimoConsumo: new Date().toISOString(),
+            });
+            console.log(
+              `Producto ${nombreProducto} consumido correctamente. Actualizado en el stock del usuario ${userId}.`
+            );
+          }
         }
 
-        const productoExistente = docSnap.data();
-
-        // Verificar si la cantidad solicitada es menor o igual a la cantidad en stock
-        if (cantidad > productoExistente.cantidad) {
-          return res.status(400).json({error: `Cantidad solicitada de ${nombreProducto} (${cantidad}) es mayor que la cantidad en stock (${productoExistente.cantidad}).`,});
+        if (productosNoConsumidos.length > 0) {
+          console.log('Productos no consumidos:', productosNoConsumidos);
         }
 
-        // Verificar que el nombre del producto coincida con un documento en la colección productos
-        const productoDoc = await db
-          .collection("productos")
-          .doc(nombreProducto)
-          .get();
-
-        if (!productoDoc.exists) {
-          console.log(`${nombreProducto} no se encuentra en la coleccion de productos`)
-          productosNoConsumidos.push({ nombre: nombreProducto, cantidad, unidadMedida: unidad });
-        continue;
-        }
+        console.log(`Productos consumidos del stock del usuario ${userId}.`);
+      } catch (e) {
+        console.error("Error al consumir productos del stock: ", e.message);
+        throw new Error(e.message);
       }
-      // Si todas las validaciones pasan, realizar la resta de los productos
-      for (const ingrediente of receta.ingredients) {
-        const { description: nombreProducto, quantity: cantidad } = ingrediente;
-
-        const productoRef = db
-          .collection("usuarios")
-          .doc(String(userId))
-          .collection("stock")
-          .doc(nombreProducto);
-
-        const docSnap = await productoRef.get();
-        const productoExistente = docSnap.data();
-        const nuevaCantidad = productoExistente.cantidad - cantidad;
-
-        if (nuevaCantidad <= 0) {
-          await productoRef.delete();
-          console.log(`Producto ${nombreProducto} agotado. Eliminado del stock del usuario ${userId}.`);
-        } else {
-          await productoRef.update({
-            cantidad: nuevaCantidad,
-            ultimoConsumo: new Date().toISOString(),
-          });
-          console.log(`Producto ${nombreProducto} consumido correctamente. Actualizado en el stock del usuario ${userId}.`);
-        }
-      }
-
-      if (productosNoConsumidos.length > 0) {
-        console.log('Productos no consumidos:', productosNoConsumidos);
-      }
-
-      console.log(`Productos consumidos del stock del usuario ${userId}.`);
-    } catch (e) {
-      console.error("Error al consumir productos del stock: ", e.message);
-      throw new Error(e.message);
     }
-  }
-};
+  };
 
 export default new StockController();
 
