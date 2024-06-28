@@ -1,16 +1,15 @@
 import { db } from "../connection/firebaseConnection.js";
-import { collection, addDoc, getDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import GeminiController from './GeminiController.js';
 import StockController from "./StockController.js"
 import axios from "axios";
 
 class RecetaController {
   generarRecetas = (req, res) => {
-    return generateRecipes(req, res, GeminiController.getUserRecipes);
+    return generateRecipes(req, res, GeminiController.generateRecipes, true);
   };
 
   generarRecetasRandom = (req, res) => {
-    return generateRecipes(req, res, GeminiController.getRandomRecipes);
+    return generateRecipes(req, res, GeminiController.generateRecipes, false);
   };
 
   guardarRecetaTemporal = async (req, res) => {
@@ -102,13 +101,8 @@ class RecetaController {
   // Crear una nueva receta
   crearRecetaPersonalizada = async (req, res) => {
     const userId = req.user.id;
-    console.log(req.body);
-  const {
-  name,
-  ingredients,
-  steps,
-} = req.body;
-
+    console.log("Request body:", req.body);
+    const { name, ingredients, steps } = req.body;
 
     try {
       if (!name || typeof name !== "string" || name.trim() === "") {
@@ -137,6 +131,8 @@ class RecetaController {
         .doc(String(userId))
         .collection("creadas");
       await recetarioRef.doc(recetaId).set(recetaPersonalizada);
+
+      console.log("Receta personalizada creada:", recetaPersonalizada);
 
       res.status(200).json({
         success: true,
@@ -186,6 +182,7 @@ class RecetaController {
 
       const userData = docSnap.data();
       const recetaTemporal = userData.recetaTemporal;
+      console.log(recetaTemporal);
 
       if (!recetaTemporal) {
         return res
@@ -211,6 +208,7 @@ class RecetaController {
       const now = new Date();
       const fechaActual = now.toISOString().split("T")[0]; // Obtener la fecha en formato yyyy-MM-dd
       const recetaId = `${recetaTemporal.name}_${fechaActual}`;
+      console.log(recetaId);
 
       const recetasRef = db
         .collection("usuarios")
@@ -224,15 +222,13 @@ class RecetaController {
           .doc(String(userId))
           .collection("favoritas");
         await favRef.doc(recetaId).set(recetaPuntuada);
-        console.log("Receta guardada en favoritos exitosamente! ${recetaId}");
+        console.log(`Receta guardada en favoritos exitosamente! ${recetaId}`);
       }
 
       // Anular el campo recetaTemporal en el documento del usuario
-      await userDocRef.update({
-        recetaTemporal: null,
-      });
+      await userDocRef.update({ recetaTemporal: null });
 
-      console.log("Receta agregada al historial exitosamente! ${recetaId}");
+      console.log(`Receta agregada al historial exitosamente! ${recetaId}`);
       res.status(200).json({
         success: true,
         message: "Receta puntuada, stock actualizado si correspondía",
@@ -278,7 +274,14 @@ const validarPuntuacion = (puntuacion) =>{
 
 const obtenerRecetas = async (userId, coleccion, res) => {
   try {
-      const recetasRef = db.collection('usuarios').doc(String(userId)).collection(coleccion);
+      let recetasRef = db.collection('usuarios').doc(String(userId)).collection(coleccion);
+
+      if (coleccion === 'creadas') {
+        recetasRef = recetasRef.orderBy('momentoCreacion', 'desc');
+      } else {
+        recetasRef = recetasRef.orderBy('momentoRealizacion', 'desc');
+      }
+
       const querySnapshot = await recetasRef.get();
       const recetas = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -291,15 +294,15 @@ const obtenerRecetas = async (userId, coleccion, res) => {
   }
 };
 
-const generateRecipes = async (req, res, method) => {
+const generateRecipes = async (req, res, method, usaStock) => {
   try {
-    await method(req, res);
+    await method(req, res, usaStock);
   } catch (error) {
     console.error('Error en la primera llamada:', error.message);
     if (error.response && error.response.status === 500) {
       console.log('Reintentando la llamada...');
       try {
-        await method(req, res);
+        await method(req, res, usaStock);
       } catch (retryError) {
         console.error('Error en la segunda llamada:', retryError.message);
         return res.status(500).send({ success: false, message: 'Error al obtener datos de la API externa: ' + retryError.message });

@@ -13,16 +13,31 @@ class EanController {
     }
 
     let tipoProducto = null;
+    let ingrediente = null;
 
     try {
         console.log(`Buscando EAN: ${ean} en la colección eans`);
 
-        const eanRef = db.collection("eans").doc(String(ean));
+        const eanRef = await db.collection("eans").doc(String(ean));
         const eanDoc = await eanRef.get();
 
         if (eanDoc.exists) {
-            tipoProducto = eanDoc.data();
-            console.log(`Producto encontrado: ${ean} con tipo: ${tipoProducto}`);
+            let tipoEan = eanDoc.data().tipo;
+            console.log(`Producto encontrado: ${ean} con tipo: ${tipoEan}`);
+            console.log(tipoEan)
+
+            const productoRef = await db.collection("productos").doc(tipoEan);
+            const productoDoc = await productoRef.get();
+
+            console.log(productoDoc)
+
+            const productoData = productoDoc.data();
+            ingrediente = {
+                unidadMedida: productoData.unidadMedida,
+                imageUrl: productoData.imageUrl,
+                tipo: tipoEan
+            };
+            
         } else {
             console.log("EAN no encontrado, llamando a la API de Ratoneando.");
 
@@ -31,10 +46,12 @@ class EanController {
             console.log(tipoProducto)
             if (!tipoProducto) {
                 throw new Error("El tipo de producto no es válido.");
+            }else{
+                ingrediente = tipoProducto;
             }
         }
 
-        res.json( tipoProducto );
+        res.json( ingrediente );
     } catch (e) {
         console.error("Error al procesar el EAN: ", e.message);
         res.status(400).json({ error: `Error al procesar el EAN: ${e.message}` });

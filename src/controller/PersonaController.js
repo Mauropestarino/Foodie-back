@@ -10,6 +10,7 @@ const RestriccionesEnum = {
   KOSHER: "Kosher",
   HIPERTENSION: "Hipertensión",
   INTOLERANTE_LACTOSA: "Intolerancia a la lactosa",
+  NINGUNA: "Ninguna"
 };
 
 const validarPersona = (persona) => {

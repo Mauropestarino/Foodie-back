@@ -52,7 +52,7 @@ class GeminiController {
     }
   };
 
-  getUserRecipes = async (req, res) => {
+  generateRecipes = async (req, res, usaStock) => {
     console.log("------request");
 
     const model = await createModel();
@@ -69,6 +69,9 @@ class GeminiController {
       const userData = userDoc.data();
       console.log("Datos del usuario:", userData);
 
+      let listaPrompteable = null;
+
+  if(usaStock){
       const stockSnapshot = await db
         .collection("usuarios")
         .doc(userId)
@@ -79,124 +82,23 @@ class GeminiController {
         cantidad: doc.data().cantidad,
         unidadMedida: doc.data().unidadMedida,
       }));
-
-      const userRestrictions = userData.persona.restricciones || [];
-      let allRestrictions = [...new Set(userRestrictions)];
-
-      let cantidadPersonas = 1;
-
-      if (comensales !== null) {
-        for (let persona of comensales) {
-          const grupoFamiliarSnapshot = await db
-            .collection("usuarios")
-            .doc(userId)
-            .collection("grupoFamiliar")
-            .where("nombre", "==", persona.nombre)
-            .where("apellido", "==", persona.apellido)
-            .get();
-
-          const personaDoc = grupoFamiliarSnapshot.docs[0];
-
-          if (personaDoc.exists) {
-            const personaData = personaDoc.data();
-            const personaRestrictions = personaData.restricciones || [];
-            if (personaRestrictions.length > 0) {
-              allRestrictions = [
-                ...new Set([...allRestrictions, ...personaRestrictions]),
-              ];
-            }
-          }
-        }
-        console.log("Restricciones combinadas:", allRestrictions);
-        cantidadPersonas += comensales.length;
-      }
-      console.log(`${cantidadPersonas} comensales en total`);
-
-      const productosSnapshot = await db.collection("productos").get();
-      const productos = productosSnapshot.docs.map((doc) => ({
-        nombre: doc.id,
-        unidadMedida: doc.data().unidadMedida,
-      }));
-      //console.log("Productos en la colección de Firestore:", productos);
-
       const ingredientesPrompt = stockItems
         .map((item) => `${item.nombre}: ${item.cantidad} ${item.unidadMedida}`)
         .join(", ");
-      const restriccionesPrompt = allRestrictions.join(", ");
+
+        listaPrompteable = ingredientesPrompt;
+    }else{
+      const productosSnapshot = await db.collection("productos").get();
+      const productos = productosSnapshot.docs.map((doc) => ({
+        nombre: doc.id,
+        unidadMedida: doc.data().unidadMedida,
+      }));
       const productosPrompt = productos
         .map((p) => `${p.nombre} medido en ${p.unidadMedida}`)
         .join(", ");
 
-      let prompt = `
-            Tengo la siguiente lista de ingredientes con sus respectivas unidades de medida: ${productosPrompt}.
-            Ingredientes en stock del usuario: ${ingredientesPrompt}.
-            Teniendo en cuenta el stock, dame 3 recetas de ${comida}.
-            IMPORTANTE: Los ingredientes de las recetas deben tener el nombre de los que están en la lista anterior, debes cambiar el nombre de los ingredientes para que sean exactamente iguales a alguno de la lista. ESTO ES UN REQUERIMIENTO EXCLUYENTE.
-            Calcula las porciones para ${cantidadPersonas} personas.
-            Las porciones de los ingredientes deben estar medidas UNICAMENTE en "gramos", "mililitros" o "unidades", convertir las demás a la que sea más conveniente. NO USAR ABREVIACIONES.
-            Devolver las 3 recetas en formato JSON, con los campos {name, ingredients (description, quantity, unit), steps (cada oracion es un paso distinto)}.
-          `;
-
-      if (allRestrictions.length > 0) {
-        prompt += ` Tener en cuenta las restricciones de las personas: ${restriccionesPrompt}.`;
-      }
-
-      const result = await model.generateContent(prompt);
-      const responseText = await result.response;
-      const rawText = await responseText.text();
-
-      const finalJson = await parseadorJson(rawText);
-
-      // Formatear texto de las recetas
-      await finalJson.forEach((recipe) => {
-        recipe.name = formatText(recipe.name);
-        
-        recipe.ingredients.forEach((ingredient) => {
-          ingredient.description = formatText(ingredient.description);
-        });
-        recipe.steps.forEach((paso)=>{
-          paso = formatText(paso);
-        })
-      });
-
-      await asignarImagen(finalJson);
-
-      for(let recipe of finalJson){
-        recipe.usaStock = true;
-      }
-
-      console.log("--response");
-      console.log("Final JSON:", finalJson);
-
-      await coincidenciasConProductos(finalJson);
-      await coincidenciasConStock(finalJson, userId);
-
-      return res.status(200).send(finalJson);
-    } catch (error) {
-      console.error("Error fetching data from external API:", error);
-      return res.status(500).send({
-        success: false,
-        message: "Error al obtener datos de la API externa: " + error.message,
-      });
+        listaPrompteable = productosPrompt
     }
-  };
-
-  getRandomRecipes = async (req, res) => {
-    console.log("------request");
-
-    const model = await createModel();
-
-    const userId = req.user.id;
-    const { comensales, comida } = req.body;
-
-    try {
-      const userDoc = await db.collection("usuarios").doc(userId).get();
-      if (!userDoc.exists) {
-        throw new Error("Usuario no encontrado");
-      }
-
-      const userData = userDoc.data();
-      console.log("Datos del usuario:", userData);
 
       const userRestrictions = userData.persona.restricciones || [];
       let allRestrictions = [...new Set(userRestrictions)];
@@ -228,23 +130,13 @@ class GeminiController {
         console.log("Restricciones combinadas:", allRestrictions);
         cantidadPersonas += comensales.length;
       }
-      console.log(`${cantidadPersonas} comensales en total`);
-
-      const productosSnapshot = await db.collection("productos").get();
-      const productos = productosSnapshot.docs.map((doc) => ({
-        nombre: doc.id,
-        unidadMedida: doc.data().unidadMedida,
-      }));
-      console.log("Productos en la colección de Firestore:", productos);
-
+      console.log(`${cantidadPersonas} comensales en total`);      
       const restriccionesPrompt = allRestrictions.join(", ");
-      const productosPrompt = productos
-        .map((p) => `${p.nombre} medido en ${p.unidadMedida}`)
-        .join(", ");
+      
 
       let prompt = `
-          Tengo la siguiente lista de ingredientes con sus respectivas unidades de medida: ${productosPrompt}
-          Teniendo en cuenta la lista, dame 3 recetas de ${comida} muy distintas una de la otra.
+          Tengo la siguiente lista de ingredientes con sus respectivas cantidades: ${listaPrompteable}
+          Teniendo en cuenta la lista, dame 3 recetas gourmet de ${comida} muy distintas una de la otra.
           IMPORTANTE: Los ingredientes de las recetas deben tener el nombre de los que estan en la lista anterior, debes cambiar el nombre de los ingredientes para que sean exactamente iguales a alguno de la lista. ESTO ES UN REQUERIMIENTO EXCLUYENTE
           Las recetas deben estar pensadas para ${cantidadPersonas} personas, y las porciones pueden ser ajustadas para coincidir con eso.
           Las porciones de los ingredientes deben estar medidas UNICAMENTE en "gramos", "mililitros" o "unidades", convertir las demás a la que sea más conveniente. NO USAR ABREVIACIONES
@@ -274,16 +166,25 @@ class GeminiController {
       });
 
       await asignarImagen(finalJson);
-      await calcularCosto(finalJson);
 
-      for(let recipe of finalJson){
-        recipe.usaStock = false;
+      if(!usaStock){
+        await calcularCosto(finalJson);
+        for(let recipe of finalJson){
+          recipe.usaStock = false;
+        }
+      }else{
+        for(let recipe of finalJson){
+          recipe.usaStock = true;
+        }
       }
+
+      
 
       console.log("--response");
       console.log("Final JSON:", finalJson);
 
       await coincidenciasConProductos(finalJson);
+      await coincidenciasConStock(finalJson, userId);
 
       return res.status(200).send(finalJson);
     } catch (error) {
@@ -375,9 +276,7 @@ const calcularCosto = async (recipes) => {
               `El ingrediente ${ingrediente.description} no tiene costoEstimado asignado. Asignando 5 pesos.`
             );
             costoIngrediente = 5 * ingrediente.quantity;
-          }
-
-          costoTotal += costoIngrediente;
+          };
         } else {
           // Si el producto no se encuentra en la colección, sumar una parte proporcional de costoTotal
           console.log(`${ingrediente.description} no se encuentra en la db`);
@@ -389,9 +288,9 @@ const calcularCosto = async (recipes) => {
         );
       }
     }
-
+    costoTotal = costoTotal;
     console.log(`Costo estimado para ${recipe.name}: ${costoTotal}`);
-    recipe.costoEstimado = parseFloat(costoTotal.toFixed(2));
+    recipe.costoEstimado = parseFloat(costoTotal.toFixed(0));
   }
 };
 
