@@ -38,16 +38,12 @@ class GeminiController {
             imageUrl: productoData.imageUrl,
           };
         } else {
-          return {
-            tipo: tipoDeProducto  ,
-            unidadMedida: null,
-            imageUrl: null,
-          };
+          throw new Error(`El tipo de producto '${tipoDeProducto}' no es un ingrediente.`);
         }
       }
     } catch (error) {
       throw new Error(
-        `Error al generar contenido con el modelo: ${error.message}`
+        `${error.message}`
       );
     }
   };
