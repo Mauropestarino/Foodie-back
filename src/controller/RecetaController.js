@@ -1,16 +1,15 @@
 import { db } from "../connection/firebaseConnection.js";
-import { collection, addDoc, getDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import GeminiController from './GeminiController.js';
 import StockController from "./StockController.js"
 import axios from "axios";
 
 class RecetaController {
   generarRecetas = (req, res) => {
-    return generateRecipes(req, res, GeminiController.getUserRecipes);
+    return generateRecipes(req, res, GeminiController.generateRecipes, true);
   };
 
   generarRecetasRandom = (req, res) => {
-    return generateRecipes(req, res, GeminiController.getRandomRecipes);
+    return generateRecipes(req, res, GeminiController.generateRecipes, false);
   };
 
   guardarRecetaTemporal = async (req, res) => {
@@ -275,7 +274,14 @@ const validarPuntuacion = (puntuacion) =>{
 
 const obtenerRecetas = async (userId, coleccion, res) => {
   try {
-      const recetasRef = db.collection('usuarios').doc(String(userId)).collection(coleccion);
+      let recetasRef = db.collection('usuarios').doc(String(userId)).collection(coleccion);
+
+      if (coleccion === 'creadas') {
+        recetasRef = recetasRef.orderBy('momentoCreacion', 'desc');
+      } else {
+        recetasRef = recetasRef.orderBy('momentoRealizacion', 'desc');
+      }
+
       const querySnapshot = await recetasRef.get();
       const recetas = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -288,15 +294,15 @@ const obtenerRecetas = async (userId, coleccion, res) => {
   }
 };
 
-const generateRecipes = async (req, res, method) => {
+const generateRecipes = async (req, res, method, usaStock) => {
   try {
-    await method(req, res);
+    await method(req, res, usaStock);
   } catch (error) {
     console.error('Error en la primera llamada:', error.message);
     if (error.response && error.response.status === 500) {
       console.log('Reintentando la llamada...');
       try {
-        await method(req, res);
+        await method(req, res, usaStock);
       } catch (retryError) {
         console.error('Error en la segunda llamada:', retryError.message);
         return res.status(500).send({ success: false, message: 'Error al obtener datos de la API externa: ' + retryError.message });

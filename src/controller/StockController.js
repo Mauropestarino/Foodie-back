@@ -13,16 +13,46 @@ class StockController {
     console.log(`alerta ${alerta}`);
     console.log(`unidadMedida ${unidadMedida}`);
 
-    if (!userId || !ean || !tipoProducto || !cantidad || !unidad ) {
+    /*if (!userId || !ean || !tipoProducto || !cantidad || !unidad ) {
       console.log("Datos incompletos en la solicitud");
       return res.status(400).json({ error: "Todos los campos son requeridos" });
-    }
-    
+    }*/
+
+      if (!userId) {
+        console.log("Falta el userId en la solicitud");
+        return res.status(400).json({ error: "El campo userId es requerido" });
+      }
+      if (!ean) {
+        console.log("Falta el ean en la solicitud");
+        return res.status(400).json({ error: "El campo ean es requerido" });
+      }
+      if (!tipoProducto) {
+        console.log("Falta el tipoProducto en la solicitud");
+        return res.status(400).json({ error: "El campo tipoProducto es requerido" });
+      }
+      if (!cantidad) {
+        console.log("Falta la cantidad en la solicitud");
+        return res.status(400).json({ error: "El campo cantidad es requerido" });
+      }
+      if (!unidad) {
+        console.log("Falta la unidad en la solicitud");
+        return res.status(400).json({ error: "El campo unidad es requerido" });
+      }
+      let alarma;
+      if (!alerta) {
+        console.log("Alerta no seleccionada, asignando 0");
+        alarma = 0;
+       // return res.status(400).json({ error: "El campo alerta es requerido" });
+      }else{ alarma = alerta }
+      
+
+    let nombreProducto = await formatText(tipoProducto);
+        
     try {
       await validarValor(unidad);
       await validarValor(cantidad);
 
-      console.log(`Confirmando EAN: ${ean} con tipo: ${tipoProducto}, cantidad: ${cantidad}, unidad: ${unidad} para el usuario: ${userId}`);
+      console.log(`Confirmando EAN: ${ean} con tipo: ${nombreProducto}, cantidad: ${cantidad}, unidad: ${unidad} para el usuario: ${userId}`);
 
       const eanRef = db.collection("eans").doc(String(ean));
       const eanDoc = await eanRef.get();
@@ -33,7 +63,7 @@ class StockController {
           timestamp: new Date().toISOString(),
         });
         console.log(
-          `Producto con EAN: ${ean} insertado en Firestore con tipo: ${tipoProducto}`
+          `Producto con EAN: ${ean} insertado en Firestore con tipo: ${nombreProducto}`
         );
       }
 
@@ -41,7 +71,7 @@ class StockController {
         .collection("usuarios")
         .doc(String(userId))
         .collection("stock")
-        .doc(tipoProducto);
+        .doc(nombreProducto);
       const userStockDoc = await userStockRef.get();
 
       if (userStockDoc.exists) {
@@ -49,10 +79,10 @@ class StockController {
         await userStockRef.update({
           cantidad: currentCantidad + cantidad * unidad,
           ultimaCarga: new Date().toISOString(),
-          alertaEscasez: alerta,
+          alertaEscasez: alarma,
         });
         console.log(
-          `Stock actualizado para el producto: ${tipoProducto} del usuario: ${userId} con nueva cantidad: ${
+          `Stock actualizado para el producto: ${nombreProducto} del usuario: ${userId} con nueva cantidad: ${
             currentCantidad + cantidad * unidad
           }`
         );
@@ -62,10 +92,10 @@ class StockController {
           cantidad: cantidad * unidad,
           ultimaCarga: new Date().toISOString(),
           unidadMedida: unidadMedida,
-          alertaEscasez: alerta,
+          alertaEscasez: alarma,
         });
 
-        console.log(`Nuevo stock creado para el producto: ${tipoProducto} del usuario: ${userId} con: ${cantidad * unidad}  ${unidadMedida}`);
+        console.log(`Nuevo stock creado para el producto: ${nombreProducto} del usuario: ${userId} con: ${cantidad * unidad}  ${unidadMedida}`);
         }
 
       res.status(200).json({ message: "Confirmación exitosa" });
@@ -168,7 +198,7 @@ class StockController {
         })
       );
 
-      console.log(stock); // Log para verificar los datos obtenidos
+      //console.log(stock); // Log para verificar los datos obtenidos
 
       res.status(200).json(stock);
     } catch (e) {
@@ -385,4 +415,10 @@ const validarProductoParaConsumo = (producto) => {
       "La cantidad del producto debe ser un número entero positivo."
     );
   }
+};
+
+const formatText = (text) => {
+  return (
+    text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
+  );
 };
