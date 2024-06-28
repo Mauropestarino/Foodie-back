@@ -18,20 +18,16 @@ class EanController {
     try {
         console.log(`Buscando EAN: ${ean} en la colección eans`);
 
-        const eanRef = await db.collection("eans").doc(String(ean));
-        const eanDoc = await eanRef.get();
+        const eanDoc = await db.collection("eans").doc(String(ean)).get();
 
-        if (eanDoc.exists) {
+        if (eanDoc.exists) { 
             let tipoEan = eanDoc.data().tipo;
             console.log(`Producto encontrado: ${ean} con tipo: ${tipoEan}`);
-            console.log(tipoEan)
 
-            const productoRef = await db.collection("productos").doc(tipoEan);
-            const productoDoc = await productoRef.get();
-
-            console.log(productoDoc)
+            const productoDoc = await db.collection("productos").doc(tipoEan).get();
 
             const productoData = productoDoc.data();
+            console.log(productoData)
             ingrediente = {
                 unidadMedida: productoData.unidadMedida,
                 imageUrl: productoData.imageUrl,
@@ -54,7 +50,7 @@ class EanController {
         res.json( ingrediente );
     } catch (e) {
         console.error("Error al procesar el EAN: ", e.message);
-        res.status(400).json({ error: `Error al procesar el EAN: ${e.message}` });
+        res.status(400).json({ error: `${e.message}` });
     }
   }
 }
