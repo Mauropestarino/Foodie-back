@@ -153,11 +153,11 @@ class UserController {
 
   // Autenticar usuario y generar token
   async login(req, res) {
-    const { mail, password } = req.body;
-    console.log(`mail: ${mail}, password: ${password}`)
+    const { email, password } = req.body;
+    console.log(`mail: ${email}, password: ${password}`)
 
     try {
-      const userRef = db.collection("usuarios").doc(mail);
+      const userRef = db.collection("usuarios").doc(email);
       const docSnap = await userRef.get();
 
       if (!docSnap.exists) {
@@ -178,7 +178,7 @@ class UserController {
 
       const recetaTemporal = user.recetaTemporal || null;
 
-      console.log(`Logueado exitosamente con el mail: ${mail}`)
+      console.log(`Logueado exitosamente con el mail: ${email}`)
 
       res.status(200).json({ auth: true, token, recetaTemporal });
     } catch (e) {
