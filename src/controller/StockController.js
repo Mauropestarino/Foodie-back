@@ -207,28 +207,49 @@ class StockController {
     }
   }
 
-  async obtenerProducto(req, res) {
-    const userId = req.userId;
-    const { nombreProducto } = req.body;
+  async buscarProductos(req, res) {
+    const userId = req.user.id;
+    const { nombreProducto }= req.query;
+
+    console.log(nombreProducto)
+    let nombre = formatText(nombreProducto);
+    console.log(nombre)
 
     try {
-      const productoRef = db
-        .collection("usuarios")
-        .doc(String(userId)) // Convert userId to string
-        .collection("stock")
-        .doc(nombreProducto);
-      const docSnap = await productoRef.get();
+      const productosRef = db.collection("productos");
+      const querySnapshot = await productosRef.get();
 
-      if (docSnap.exists) {
-        res.status(200).json(docSnap.data());
+      if (!querySnapshot.empty) {
+        console.log("Documentos obtenidos de la colección productos:", querySnapshot.size);
+
+        const productos = [];
+        querySnapshot.forEach(doc => {
+
+          // Verificar si alguna palabra dentro del ID del documento comienza con `nombreProducto`
+          const words = doc.id.split(" ");
+          for (let word of words) {
+            if (word.toLowerCase().startsWith(nombreProducto.toLowerCase())) {
+              console.log("Documento coincide con el criterio:", doc.id);
+              productos.push({ id: doc.id, ...doc.data() });
+              break; // Si encontramos una coincidencia, no necesitamos seguir verificando más palabras
+            }
+          }
+        });
+
+        if (productos.length > 0) {
+          res.status(200).json(productos);
+        } else {
+          res.status(404).json({ error: "No se encontraron productos que coincidan con el criterio de búsqueda." });
+        }
       } else {
-        res.status(404).json({ error: "Producto no encontrado en el stock." });
+        res.status(404).json({ error: "No se encontraron productos que coincidan con el criterio de búsqueda." });
       }
     } catch (e) {
-      console.error("Error al obtener el producto del stock: ", e.message);
+      console.error("Error al obtener los productos: ", e.message);
       res.status(500).json({ error: e.message });
     }
   }
+  
 
   async actualizarProducto(req, res) {
     const userId = req.userId;
