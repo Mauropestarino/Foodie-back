@@ -212,7 +212,8 @@ class StockController {
     const { nombreProducto }= req.query;
 
     console.log(nombreProducto)
-    let nombre = formatText(nombreProducto);
+    const aux = await formatText(nombreProducto);
+    const nombre = await normalizeText(aux)
     console.log(nombre)
 
     try {
@@ -228,7 +229,7 @@ class StockController {
           // Verificar si alguna palabra dentro del ID del documento comienza con `nombreProducto`
           const words = doc.id.split(" ");
           for (let word of words) {
-            if (word.toLowerCase().startsWith(nombreProducto.toLowerCase())) {
+            if (normalizeText(word).toLowerCase().startsWith(nombre.toLowerCase())) {
               console.log("Documento coincide con el criterio:", doc.id);
               productos.push({ id: doc.id, ...doc.data() });
               break; // Si encontramos una coincidencia, no necesitamos seguir verificando más palabras
@@ -442,4 +443,8 @@ const formatText = (text) => {
   return (
     text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
   );
+};
+
+const normalizeText = (text) => {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
