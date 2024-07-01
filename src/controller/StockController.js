@@ -109,7 +109,7 @@ class StockController {
   }
 
   async agregarProductoPorNombre(req, res) {
-    const userId = req.userId;
+    const userId = req.user.id;
     const { cantidad, nombreProducto, unidad, alerta } = req.body;
 
     try {
@@ -117,7 +117,7 @@ class StockController {
       await validarValor(cantidad);
 
       const cantAgregada = cantidad*unidad;
-
+      console.log(userId);
       const productoRef = db
         .collection("usuarios")
         .doc(String(userId))
