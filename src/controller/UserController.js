@@ -14,11 +14,11 @@ class UserController {
       }
       console.log(req.body);
 
-     const {
-       mail,
-       password,
-       persona: { nombre, apellido, edad, restricciones = [] } = {}, // Destructure persona from request body
-     } = req.body;
+      const {
+        mail,
+        password,
+        persona: { nombre, apellido, edad, restricciones = [] } = {}, // Destructure persona from request body
+      } = req.body;
 
       console.log("Datos recibidos para crear usuario:", {
         mail,
@@ -110,7 +110,16 @@ class UserController {
         const favoritas = favoritasSnap.docs.map((doc) => doc.data());
         const stock = stockSnap.docs.map((doc) => doc.data());
 
-        res.status(200).json({ ...docSnap.data(), comensales, historial, creadas, favoritas, stock });
+        res
+          .status(200)
+          .json({
+            ...docSnap.data(),
+            comensales,
+            historial,
+            creadas,
+            favoritas,
+            stock,
+          });
       } else {
         console.log("No se encontró el documento!");
         res.status(404).json({ error: "Usuario no encontrado" });
@@ -142,7 +151,14 @@ class UserController {
         const favoritas = favoritasSnap.docs.map((doc) => doc.data());
         const stock = stockSnap.docs.map((doc) => doc.data());
 
-        usuarios.push({ ...userData, comensales, historial, creadas, favoritas, stock });
+        usuarios.push({
+          ...userData,
+          comensales,
+          historial,
+          creadas,
+          favoritas,
+          stock,
+        });
       }
       res.status(200).json(usuarios);
     } catch (e) {
@@ -177,7 +193,7 @@ class UserController {
 
       const recetaTemporal = user.recetaTemporal || null;
 
-      console.log(`Logueado exitosamente con el mail: ${email}`)
+      console.log(`Logueado exitosamente con el mail: ${email}`);
 
       res.status(200).json({ auth: true, token, recetaTemporal });
     } catch (e) {
@@ -189,11 +205,15 @@ class UserController {
   // Actualizar un usuario
   async actualizarRestriccionesUsuario(req, res) {
     const userId = req.user.id;
-    const { restricciones } = req.body;
-
+    let { restricciones } = req.body;
+    console.log(restricciones);
     try {
       if (!restricciones) {
-        return res.status(400).json({ error: "No se proporcionaron restricciones para actualizar" });
+        return res
+          .status(400)
+          .json({
+            error: "No se proporcionaron restricciones para actualizar",
+          });
       }
 
       const userRef = db.collection("usuarios").doc(userId);
@@ -204,12 +224,17 @@ class UserController {
       }
 
       const userData = docSnap.data();
-      console.log(userData)
+      console.log(userData);
       // Actualiza restricciones dentro de persona en el documento del usuario
+      if (restricciones == 'Ninguna') {
+        restricciones = []
+      }
       userData.persona.restricciones = restricciones;
 
       // También actualiza la persona en la colección personas
-      const result = await PersonaController.actualizarPersona(userData.persona);
+      const result = await PersonaController.actualizarPersona(
+        userData.persona
+      );
 
       if (result.status !== 200) {
         throw new Error(result.error);
@@ -217,7 +242,9 @@ class UserController {
 
       await userRef.update(userData);
       console.log("Usuario actualizado con éxito");
-      res.status(200).json({ id: userId, restricciones: userData.persona.restricciones });
+      res
+        .status(200)
+        .json({ id: userId, restricciones: userData.persona.restricciones });
     } catch (e) {
       console.error("Error al actualizar el usuario: ", e.message);
       res.status(400).json({ error: e.message });
@@ -231,44 +258,44 @@ class UserController {
     try {
       const userRef = db.collection("usuarios").doc(userId);
 
-        // Eliminar documentos de la subcolección comensales
-        let snapshot = await userRef.collection("grupoFamiliar").get();
-        for (const doc of snapshot.docs) {
-          await doc.ref.delete();
-        }
- 
-        // Eliminar documentos de la subcolección recetas
-        snapshot = await userRef.collection("historial").get();
-        for (const doc of snapshot.docs) {
-          await doc.ref.delete();
-        }
+      // Eliminar documentos de la subcolección comensales
+      let snapshot = await userRef.collection("grupoFamiliar").get();
+      for (const doc of snapshot.docs) {
+        await doc.ref.delete();
+      }
 
-        // Eliminar documentos de la subcolección creadas
-        snapshot = await userRef.collection("creadas").get();
-        for (const doc of snapshot.docs) {
-          await doc.ref.delete();
-        }
+      // Eliminar documentos de la subcolección recetas
+      snapshot = await userRef.collection("historial").get();
+      for (const doc of snapshot.docs) {
+        await doc.ref.delete();
+      }
 
-        // Eliminar documentos de la subcolección favoritas
-        snapshot = await userRef.collection("favoritas").get();
-        for (const doc of snapshot.docs) {
-          await doc.ref.delete();
-        }  
- 
-        // Eliminar documentos de la subcolección stock
-        snapshot = await userRef.collection("stock").get();
-        for (const doc of snapshot.docs) {
-          await doc.ref.delete();
-        }
+      // Eliminar documentos de la subcolección creadas
+      snapshot = await userRef.collection("creadas").get();
+      for (const doc of snapshot.docs) {
+        await doc.ref.delete();
+      }
 
-          // Eliminar el documento del usuario
-          await userRef.delete();
+      // Eliminar documentos de la subcolección favoritas
+      snapshot = await userRef.collection("favoritas").get();
+      for (const doc of snapshot.docs) {
+        await doc.ref.delete();
+      }
 
-          console.log("Usuario eliminado con éxito");
-          res.status(200).json({ message: "Usuario eliminado con éxito" });
+      // Eliminar documentos de la subcolección stock
+      snapshot = await userRef.collection("stock").get();
+      for (const doc of snapshot.docs) {
+        await doc.ref.delete();
+      }
+
+      // Eliminar el documento del usuario
+      await userRef.delete();
+
+      console.log("Usuario eliminado con éxito");
+      res.status(200).json({ message: "Usuario eliminado con éxito" });
     } catch (e) {
-          console.error("Error al eliminar el usuario: ", e.message);
-          res.status(500).json({ error: e.message });
+      console.error("Error al eliminar el usuario: ", e.message);
+      res.status(500).json({ error: e.message });
     }
   }
 }
