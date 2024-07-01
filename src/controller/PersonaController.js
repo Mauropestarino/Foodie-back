@@ -47,20 +47,20 @@ class PersonaController {
     try {
       console.log("Datos recibidos para crear persona:", persona);
       validarPersona(persona);
-      persona.personaId = generarIdPersona(persona.nombre, persona.apellido);
+      persona.id = generarIdPersona(persona.nombre, persona.apellido);
 
       if (
-        !persona.personaId ||
-        typeof persona.personaId !== "string" ||
-        persona.personaId.trim() === ""
+        !persona.id ||
+        typeof persona.id !== "string" ||
+        persona.id.trim() === ""
       ) {
         throw new Error("ID de persona inválido.");
       }
 
-      const docRef = db.collection("personas").doc(persona.personaId);
+      const docRef = db.collection("personas").doc(persona.id);
       await docRef.set(persona);
-      console.log("Documento escrito con ID: ", persona.personaId);
-      return { status: 201, id: persona.personaId, ...persona };
+      console.log("Documento escrito con ID: ", persona.id);
+      return { persona };
     } catch (e) {
       console.error("Error al agregar el documento: ", e.message);
       return {
@@ -105,7 +105,8 @@ class PersonaController {
 
   actualizarPersona = async (persona) => {
     const { id } = persona;
-
+    console.log("Persona con restricciones nuevas:")
+    console.log(persona)
     try {
       validarPersona(persona);
 
@@ -134,6 +135,30 @@ class PersonaController {
       res.status(500).json({ error: e.message });
     }
   }
+
+  validarPersona = (persona) => {
+
+    if (typeof persona.nombre !== "string" || persona.nombre.trim() === "") {
+      throw new Error("El nombre es obligatorio y debe ser una cadena no vacía.");
+    }
+    if (typeof persona.apellido !== "string" || persona.apellido.trim() === "") {
+      throw new Error(
+        "El apellido es obligatorio y debe ser una cadena no vacía."
+      );
+    }
+    if (!Number.isInteger(persona.edad) || persona.edad <= 0) {
+      throw new Error("La edad debe ser un número entero positivo.");
+    }
+    if (!Array.isArray(persona.restricciones)) {
+      throw new Error("Las restricciones deben ser un array.");
+    }
+    persona.restricciones.forEach((restriccion) => {
+      if (!Object.values(RestriccionesEnum).includes(restriccion)) {
+        throw new Error(`Restricción no válida: ${restriccion}`);
+      }
+    });
+  };
+
 }
 
 export default new PersonaController();

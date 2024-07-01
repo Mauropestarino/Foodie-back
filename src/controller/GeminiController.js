@@ -11,9 +11,11 @@ class GeminiController {
       .map((doc) => doc.id)
       .join(", ");
 
-    const prompt = `Tengo los siguientes productos: ${nombresProductos.join(
-      ", "
-    )}. En base a sus nombres, a qué tipo de producto pertenecen? Elegir un ÚNICO tipo de producto. Las opciones son: ${tiposDeProductos}. IMPORTANTE: Responde SOLO con el tipo de producto correspondiente`;
+    const prompt = `Tengo los siguientes productos: ${nombresProductos.join(", ")}. 
+    En base a sus nombres, a qué tipo de producto pertenecen?
+    Elegir un ÚNICO tipo de producto. 
+    Las opciones son: ${tiposDeProductos}. 
+    IMPORTANTE: Responde SOLO con el tipo de producto correspondiente`;
 
     try {
       const result = await model.generateContent(prompt);
@@ -155,7 +157,9 @@ class GeminiController {
       }
 
       if (historial.length > 0) {
-        prompt += ` Este es el historial de recetas anteriores con sus puntuaciones (del 1 al 5) y si son favoritas, tenelas en cuenta: ${historialPrompt}.`;
+        prompt += ` 
+        Este es el historial de recetas anteriores con sus puntuaciones (del 1 al 5) y si son favoritas, tenelas en cuenta: ${historialPrompt}.
+        No repitas NINGUNA receta de las que esta en el historial y evita sugerir recetas similares a aquellas con baja puntuacion (menor a 3)`;
       }
 
       const result = await model.generateContent(prompt);

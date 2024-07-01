@@ -17,9 +17,6 @@ class ComensalController {
       const personaReq = { nombre, apellido, edad, restricciones };
       const personaResult = await PersonaController.crearPersona(personaReq);
       console.log(personaResult);
-      if (personaResult.status !== 201) {
-        return res.status(personaResult.status).json({ error: personaResult.error });
-      }
 
       const persona = personaResult;
       // Agregar persona a la colección grupoFamiliar del usuario
@@ -30,9 +27,6 @@ class ComensalController {
         .doc(persona.id);
 
       await comensalesRef.set({...persona, creacion: new Date().toISOString()});
-
-      const docRef = db.collection("personas").doc(persona.personaId);
-      await docRef.set(persona);
 
       console.log(`Persona ${persona.id} agregada al grupo de comensales del usuario ${userId}.`);
       return res.status(201).json({ message: "Persona agregada al grupo de comensales.", persona });
@@ -63,9 +57,7 @@ class ComensalController {
       }
 
       const personaDoc = comensalesSnapshot.docs[0];
-
       const personaId = personaDoc.id;
-      console.log(personaId);
 
       const persona = {
         id: personaId,
@@ -75,20 +67,17 @@ class ComensalController {
         restricciones: restricciones || [],
       };
 
+      console.log(persona)
       // Lógica de validar y actualizar persona y guardarla en la colección 'personas'
-      const updateResult = await PersonaController.actualizarPersona(persona);
-
-      if (updateResult.status !== 200) {
-        return res.status(updateResult.status).json({ error: updateResult.error });
-      }
+      await PersonaController.actualizarPersona(persona);
 
       const comensalRef = db
         .collection("usuarios")
         .doc(userId)
         .collection("grupoFamiliar")
-        .doc(personaId);
+        .doc(persona.id);
 
-      await comensalRef.update({...persona, timestamp: new Date().toISOString(),});
+      await comensalRef.update({...persona, ultimaModificacion: new Date().toISOString(),});
 
       console.log(`Persona ${personaId} actualizada en el grupo de comensales del usuario ${userId} y en la colección personas.`);
       res.status(200).json({message:"Persona actualizada en el grupo de comensales y en la colección personas.",});

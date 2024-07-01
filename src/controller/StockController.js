@@ -38,13 +38,11 @@ class StockController {
         console.log("Falta la unidad en la solicitud");
         return res.status(400).json({ error: "El campo unidad es requerido" });
       }
-      let alarma;
-      if (!alerta) {
-        console.log("Alerta no seleccionada, asignando 0");
-        alarma = 0;
-       // return res.status(400).json({ error: "El campo alerta es requerido" });
-      }else{ alarma = alerta }
-      
+
+      console.log(`alerta: ${alerta}`)
+      let alarma = alerta !== undefined ? alerta : null;
+
+      console.log(`alarma: ${alarma}`);  
 
     let nombreProducto = await formatText(tipoProducto);
         
@@ -60,7 +58,7 @@ class StockController {
       if (!eanDoc.exists) {
         await eanRef.set({
           tipo: tipoProducto,
-          timestamp: new Date().toISOString(),
+          fechaEscaneo: new Date().toISOString(),
         });
         console.log(
           `Producto con EAN: ${ean} insertado en Firestore con tipo: ${nombreProducto}`
@@ -76,24 +74,27 @@ class StockController {
 
       if (userStockDoc.exists) {
         const currentCantidad = userStockDoc.data().cantidad;
-        await userStockRef.update({
+        const updateData = {
           cantidad: currentCantidad + cantidad * unidad,
           ultimaCarga: new Date().toISOString(),
-          alertaEscasez: alarma,
-        });
+          alertaEscasez: alarma !== null ? alarma : userStockDoc.data().alertaEscasez
+        };
+
+        await userStockRef.update(updateData);
         console.log(
           `Stock actualizado para el producto: ${nombreProducto} del usuario: ${userId} con nueva cantidad: ${
             currentCantidad + cantidad * unidad
           }`
         );
       } else {
-
-        await userStockRef.set({
+        const setData = {
           cantidad: cantidad * unidad,
           ultimaCarga: new Date().toISOString(),
           unidadMedida: unidadMedida,
-          alertaEscasez: alarma,
-        });
+          alertaEscasez: alarma !== null ? alarma : 0
+        };
+
+        await userStockRef.set(setData);
 
         console.log(`Nuevo stock creado para el producto: ${nombreProducto} del usuario: ${userId} con: ${cantidad * unidad}  ${unidadMedida}`);
         }
@@ -125,23 +126,28 @@ class StockController {
 
       const docSnap = await productoRef.get();
 
+      let alarma = alerta !== undefined ? alerta : null;
+
       if (docSnap.exists) {
-        await productoRef.update({
-          cantidad: docSnap.cantidad + cantAgregada,
+        const updateData = {
+          cantidad: docSnap.data().cantidad + cantAgregada,
           ultimaCarga: new Date().toISOString(),
-          alertaEscasez: alerta,
-        });
+          alertaEscasez: alarma !== null ? alarma : docSnap.data().alertaEscasez
+        };
+        await productoRef.update(updateData);
       } else {
         const ingredienteSnapshot = await db.collection("productos").doc(nombreProducto);
         const ingredienteRef = await ingredienteSnapshot.get();
         const medicion = ingredienteRef.data().unidadMedida;
 
-        await productoRef.set({ 
+        const setData = {
           cantidad: cantAgregada,
           unidadMedida: medicion,
-          ultimaCarga,
-          alertaEscasez: alerta,
-        });
+          ultimaCarga: new Date().toISOString(),
+          alertaEscasez: alarma !== null ? alarma : 0
+        };
+        await productoRef.set(setData);
+  
       }
 
       console.log(

@@ -154,7 +154,6 @@ class UserController {
   // Autenticar usuario y generar token
   async login(req, res) {
     const { email, password } = req.body;
-    console.log(`mail: ${email}, password: ${password}`)
 
     try {
       const userRef = db.collection("usuarios").doc(email);
@@ -188,16 +187,13 @@ class UserController {
   }
 
   // Actualizar un usuario
-  async actualizarUsuario(req, res) {
-    const userId = req.userId;
-    const { mail, password, persona } = req.body;
+  async actualizarRestriccionesUsuario(req, res) {
+    const userId = req.user.id;
+    const { restricciones } = req.body;
 
     try {
-      if (mail || password) {
-        validarUsuario({ mail, password });
-      }
-      if (persona) {
-        validarPersona(persona);
+      if (!restricciones) {
+        return res.status(400).json({ error: "No se proporcionaron restricciones para actualizar" });
       }
 
       const userRef = db.collection("usuarios").doc(userId);
@@ -207,15 +203,21 @@ class UserController {
         return res.status(404).json({ error: "Usuario no encontrado" });
       }
 
-      const updatedData = {};
-      if (mail) updatedData.mail = mail;
-      if (password)
-        updatedData.password = await bcrypt.hash(password, saltRounds);
-      if (persona) updatedData.persona = persona;
+      const userData = docSnap.data();
+      console.log(userData)
+      // Actualiza restricciones dentro de persona en el documento del usuario
+      userData.persona.restricciones = restricciones;
 
-      await userRef.update(updatedData);
+      // También actualiza la persona en la colección personas
+      const result = await PersonaController.actualizarPersona(userData.persona);
+
+      if (result.status !== 200) {
+        throw new Error(result.error);
+      }
+
+      await userRef.update(userData);
       console.log("Usuario actualizado con éxito");
-      res.status(200).json({ id: userId, ...updatedData });
+      res.status(200).json({ id: userId, restricciones: userData.persona.restricciones });
     } catch (e) {
       console.error("Error al actualizar el usuario: ", e.message);
       res.status(400).json({ error: e.message });
