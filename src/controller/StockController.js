@@ -13,11 +13,6 @@ class StockController {
     console.log(`alerta ${alerta}`);
     console.log(`unidadMedida ${unidadMedida}`);
 
-    /*if (!userId || !ean || !tipoProducto || !cantidad || !unidad ) {
-      console.log("Datos incompletos en la solicitud");
-      return res.status(400).json({ error: "Todos los campos son requeridos" });
-    }*/
-
       if (!userId) {
         console.log("Falta el userId en la solicitud");
         return res.status(400).json({ error: "El campo userId es requerido" });
@@ -40,7 +35,7 @@ class StockController {
       }
 
       console.log(`alerta: ${alerta}`)
-      let alarma = alerta !== undefined ? alerta : null;
+      let alarma = alerta
 
       console.log(`alarma: ${alarma}`);  
 
@@ -77,7 +72,7 @@ class StockController {
         const updateData = {
           cantidad: currentCantidad + cantidad * unidad,
           ultimaCarga: new Date().toISOString(),
-          alertaEscasez: alarma !== null ? alarma : userStockDoc.data().alertaEscasez
+          alertaEscasez: alarma !== -1 ? alarma : userStockDoc.data().alertaEscasez
         };
 
         await userStockRef.update(updateData);
@@ -91,7 +86,7 @@ class StockController {
           cantidad: cantidad * unidad,
           ultimaCarga: new Date().toISOString(),
           unidadMedida: unidadMedida,
-          alertaEscasez: alarma !== null ? alarma : 0
+          alertaEscasez: alarma !== -1 ? alarma : 0
         };
 
         await userStockRef.set(setData);
@@ -126,13 +121,14 @@ class StockController {
 
       const docSnap = await productoRef.get();
 
-      let alarma = alerta !== undefined ? alerta : null;
+      let alarma = alerta
+      console.log(`alarma: ${alarma}`)
 
       if (docSnap.exists) {
         const updateData = {
           cantidad: docSnap.data().cantidad + cantAgregada,
           ultimaCarga: new Date().toISOString(),
-          alertaEscasez: alarma !== null ? alarma : docSnap.data().alertaEscasez
+          alertaEscasez: alarma !== -1 ? alarma : docSnap.data().alertaEscasez
         };
         await productoRef.update(updateData);
       } else {
@@ -144,7 +140,7 @@ class StockController {
           cantidad: cantAgregada,
           unidadMedida: medicion,
           ultimaCarga: new Date().toISOString(),
-          alertaEscasez: alarma !== null ? alarma : 0
+          alertaEscasez: alarma !== -1 ? alarma : 0
         };
         await productoRef.set(setData);
   

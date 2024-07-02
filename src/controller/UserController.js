@@ -35,17 +35,17 @@ class UserController {
       // Additional logging before creating persona
       console.log("Datos enviados para crear persona:", personaUser);
 
-      const persona = await PersonaController.crearPersona(personaUser);
-      if (persona.error) {
-        throw new Error(persona.error);
-      }
+      const personaResult = await PersonaController.crearPersona(personaUser);
+      console.log(`Persona creada:`)
+      console.log(personaResult)
 
       const hashedPassword = await bcrypt.hash(password, saltRounds);
       const nuevoUsuario = {
         mail,
         password: hashedPassword,
-        persona,
+        persona: personaResult.persona,
       };
+      console.log(nuevoUsuario)
 
       const userRef = db.collection("usuarios").doc(mail.trim());
       await userRef.set(nuevoUsuario);
