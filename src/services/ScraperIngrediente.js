@@ -12,7 +12,7 @@ admin.initializeApp({
 const db = admin.firestore();
 
 //const model = await createModel();
-const genAI = new GoogleGenerativeAI("AIzaSyBGB8MC95KLV4Ttl64YHiYjpkh9oQIwsDI");
+const genAI = new GoogleGenerativeAI(config.generativeAIKey);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 async function determinarUnidad(item) {
