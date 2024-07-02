@@ -15,27 +15,24 @@ class ComensalController {
 
     try {
       const personaReq = { nombre, apellido, edad, restricciones };
+      console.log(personaReq)
       const personaResult = await PersonaController.crearPersona(personaReq);
       console.log(personaResult);
-      if (personaResult.status !== 201) {
-        return res.status(personaResult.status).json({ error: personaResult.error });
-      }
 
-      const persona = personaResult;
+      const personaData=personaResult.persona;
+      console.log(personaData)
       // Agregar persona a la colección grupoFamiliar del usuario
-      const comensalesRef = db
+      const comensalesRef = await db
         .collection("usuarios")
         .doc(userId)
         .collection("grupoFamiliar")
-        .doc(persona.id);
+        .doc(personaData.id);
 
-      await comensalesRef.set({...persona, creacion: new Date().toISOString()});
+      await comensalesRef.set({...personaData, creacion: new Date().toISOString()});
+      console.log(comensalesRef)
 
-      const docRef = db.collection("personas").doc(persona.personaId);
-      await docRef.set(persona);
-
-      console.log(`Persona ${persona.id} agregada al grupo de comensales del usuario ${userId}.`);
-      return res.status(201).json({ message: "Persona agregada al grupo de comensales.", persona });
+      console.log(`Persona ${personaData.id} agregada al grupo de comensales del usuario ${userId}.`);
+      return res.status(201).json({ message: "Persona agregada al grupo de comensales.", personaData });
     } catch (e) {
       console.error("Error al agregar la persona al grupo de comensales: ", e.message);
       return res.status(400).json({ error: e.message });
@@ -63,9 +60,7 @@ class ComensalController {
       }
 
       const personaDoc = comensalesSnapshot.docs[0];
-
       const personaId = personaDoc.id;
-      console.log(personaId);
 
       const persona = {
         id: personaId,
@@ -75,20 +70,17 @@ class ComensalController {
         restricciones: restricciones || [],
       };
 
+      console.log(persona)
       // Lógica de validar y actualizar persona y guardarla en la colección 'personas'
-      const updateResult = await PersonaController.actualizarPersona(persona);
-
-      if (updateResult.status !== 200) {
-        return res.status(updateResult.status).json({ error: updateResult.error });
-      }
+      await PersonaController.actualizarPersona(persona);
 
       const comensalRef = db
         .collection("usuarios")
         .doc(userId)
         .collection("grupoFamiliar")
-        .doc(personaId);
+        .doc(persona.id);
 
-      await comensalRef.update({...persona, timestamp: new Date().toISOString(),});
+      await comensalRef.update({...persona, ultimaModificacion: new Date().toISOString(),});
 
       console.log(`Persona ${personaId} actualizada en el grupo de comensales del usuario ${userId} y en la colección personas.`);
       res.status(200).json({message:"Persona actualizada en el grupo de comensales y en la colección personas.",});

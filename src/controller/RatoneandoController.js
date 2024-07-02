@@ -21,7 +21,7 @@ class RatoneandoController {
       console.log(`Productos encontrados en API Ratoneando: ${productos.map(producto => producto.name).join(', ')}`);
       return productos.map(producto => producto.name);
     } catch (error) {
-      throw new Error(`Error al llamar a la API de Ratoneando: ${error.message}`);
+      throw new Error(`No se pudo encontrar ningún ingrediente relacionado al siguiente código de barras: ${ean}`);
     }
   }
 }

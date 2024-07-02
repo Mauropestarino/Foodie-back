@@ -8,7 +8,7 @@ const router = express.Router();
 router.post("/", UserController.crearUsuario);
 router.post("/login", UserController.login);
 router.get("/", authMiddleware, UserController.obtenerUsuario);
-router.put("/:id", authMiddleware, UserController.actualizarUsuario);
-router.delete("/:id", authMiddleware, UserController.eliminarUsuario);
+router.put("/update/restrictions", authMiddleware, UserController.actualizarRestriccionesUsuario);
+router.delete("/", authMiddleware, UserController.eliminarUsuario);
 
 export default router;

@@ -13,11 +13,6 @@ class StockController {
     console.log(`alerta ${alerta}`);
     console.log(`unidadMedida ${unidadMedida}`);
 
-    /*if (!userId || !ean || !tipoProducto || !cantidad || !unidad ) {
-      console.log("Datos incompletos en la solicitud");
-      return res.status(400).json({ error: "Todos los campos son requeridos" });
-    }*/
-
       if (!userId) {
         console.log("Falta el userId en la solicitud");
         return res.status(400).json({ error: "El campo userId es requerido" });
@@ -38,13 +33,11 @@ class StockController {
         console.log("Falta la unidad en la solicitud");
         return res.status(400).json({ error: "El campo unidad es requerido" });
       }
-      let alarma;
-      if (!alerta) {
-        console.log("Alerta no seleccionada, asignando 0");
-        alarma = 0;
-       // return res.status(400).json({ error: "El campo alerta es requerido" });
-      }else{ alarma = alerta }
-      
+
+      console.log(`alerta: ${alerta}`)
+      let alarma = alerta
+
+      console.log(`alarma: ${alarma}`);  
 
     let nombreProducto = await formatText(tipoProducto);
         
@@ -60,7 +53,7 @@ class StockController {
       if (!eanDoc.exists) {
         await eanRef.set({
           tipo: tipoProducto,
-          timestamp: new Date().toISOString(),
+          fechaEscaneo: new Date().toISOString(),
         });
         console.log(
           `Producto con EAN: ${ean} insertado en Firestore con tipo: ${nombreProducto}`
@@ -76,24 +69,27 @@ class StockController {
 
       if (userStockDoc.exists) {
         const currentCantidad = userStockDoc.data().cantidad;
-        await userStockRef.update({
+        const updateData = {
           cantidad: currentCantidad + cantidad * unidad,
           ultimaCarga: new Date().toISOString(),
-          alertaEscasez: alarma,
-        });
+          alertaEscasez: alarma !== -1 ? alarma : userStockDoc.data().alertaEscasez
+        };
+
+        await userStockRef.update(updateData);
         console.log(
           `Stock actualizado para el producto: ${nombreProducto} del usuario: ${userId} con nueva cantidad: ${
             currentCantidad + cantidad * unidad
           }`
         );
       } else {
-
-        await userStockRef.set({
+        const setData = {
           cantidad: cantidad * unidad,
           ultimaCarga: new Date().toISOString(),
           unidadMedida: unidadMedida,
-          alertaEscasez: alarma,
-        });
+          alertaEscasez: alarma !== -1 ? alarma : 0
+        };
+
+        await userStockRef.set(setData);
 
         console.log(`Nuevo stock creado para el producto: ${nombreProducto} del usuario: ${userId} con: ${cantidad * unidad}  ${unidadMedida}`);
         }
@@ -108,7 +104,7 @@ class StockController {
   }
 
   async agregarProductoPorNombre(req, res) {
-    const userId = req.userId;
+    const userId = req.user.id;
     const { cantidad, nombreProducto, unidad, alerta } = req.body;
 
     try {
@@ -116,7 +112,7 @@ class StockController {
       await validarValor(cantidad);
 
       const cantAgregada = cantidad*unidad;
-
+      console.log(userId);
       const productoRef = db
         .collection("usuarios")
         .doc(String(userId))
@@ -125,23 +121,29 @@ class StockController {
 
       const docSnap = await productoRef.get();
 
+      let alarma = alerta
+      console.log(`alarma: ${alarma}`)
+
       if (docSnap.exists) {
-        await productoRef.update({
-          cantidad: docSnap.cantidad + cantAgregada,
+        const updateData = {
+          cantidad: docSnap.data().cantidad + cantAgregada,
           ultimaCarga: new Date().toISOString(),
-          alertaEscasez: alerta,
-        });
+          alertaEscasez: alarma !== -1 ? alarma : docSnap.data().alertaEscasez
+        };
+        await productoRef.update(updateData);
       } else {
         const ingredienteSnapshot = await db.collection("productos").doc(nombreProducto);
         const ingredienteRef = await ingredienteSnapshot.get();
         const medicion = ingredienteRef.data().unidadMedida;
 
-        await productoRef.set({ 
+        const setData = {
           cantidad: cantAgregada,
           unidadMedida: medicion,
-          ultimaCarga,
-          alertaEscasez: alerta,
-        });
+          ultimaCarga: new Date().toISOString(),
+          alertaEscasez: alarma !== -1 ? alarma : 0
+        };
+        await productoRef.set(setData);
+  
       }
 
       console.log(
@@ -207,28 +209,50 @@ class StockController {
     }
   }
 
-  async obtenerProducto(req, res) {
-    const userId = req.userId;
-    const { nombreProducto } = req.body;
+  async buscarProductos(req, res) {
+    const userId = req.user.id;
+    const { nombreProducto }= req.query;
+
+    console.log(nombreProducto)
+    const aux = await formatText(nombreProducto);
+    const nombre = await normalizeText(aux)
+    console.log(nombre)
 
     try {
-      const productoRef = db
-        .collection("usuarios")
-        .doc(String(userId)) // Convert userId to string
-        .collection("stock")
-        .doc(nombreProducto);
-      const docSnap = await productoRef.get();
+      const productosRef = db.collection("productos");
+      const querySnapshot = await productosRef.get();
 
-      if (docSnap.exists) {
-        res.status(200).json(docSnap.data());
+      if (!querySnapshot.empty) {
+        console.log("Documentos obtenidos de la colección productos:", querySnapshot.size);
+
+        const productos = [];
+        querySnapshot.forEach(doc => {
+
+          // Verificar si alguna palabra dentro del ID del documento comienza con `nombreProducto`
+          const words = doc.id.split(" ");
+          for (let word of words) {
+            if (normalizeText(word).toLowerCase().startsWith(nombre.toLowerCase())) {
+              console.log("Documento coincide con el criterio:", doc.id);
+              productos.push({ id: doc.id, ...doc.data() });
+              break; // Si encontramos una coincidencia, no necesitamos seguir verificando más palabras
+            }
+          }
+        });
+
+        if (productos.length > 0) {
+          res.status(200).json(productos);
+        } else {
+          res.status(404).json({ error: "No se encontraron productos que coincidan con el criterio de búsqueda." });
+        }
       } else {
-        res.status(404).json({ error: "Producto no encontrado en el stock." });
+        res.status(404).json({ error: "No se encontraron productos que coincidan con el criterio de búsqueda." });
       }
     } catch (e) {
-      console.error("Error al obtener el producto del stock: ", e.message);
+      console.error("Error al obtener los productos: ", e.message);
       res.status(500).json({ error: e.message });
     }
   }
+  
 
   async actualizarProducto(req, res) {
     const userId = req.userId;
@@ -421,4 +445,8 @@ const formatText = (text) => {
   return (
     text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
   );
+};
+
+const normalizeText = (text) => {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };

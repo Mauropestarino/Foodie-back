@@ -11,9 +11,11 @@ class GeminiController {
       .map((doc) => doc.id)
       .join(", ");
 
-    const prompt = `Tengo los siguientes productos: ${nombresProductos.join(
-      ", "
-    )}. En base a sus nombres, a qué tipo de producto pertenecen? Elegir un ÚNICO tipo de producto. Las opciones son: ${tiposDeProductos}. IMPORTANTE: Responde SOLO con el tipo de producto correspondiente`;
+    const prompt = `Tengo los siguientes productos: ${nombresProductos.join(", ")}. 
+    En base a sus nombres, a qué tipo de producto pertenecen?
+    Elegir un ÚNICO tipo de producto. 
+    Las opciones son: ${tiposDeProductos}. 
+    IMPORTANTE: Responde SOLO con el tipo de producto correspondiente`;
 
     try {
       const result = await model.generateContent(prompt);
@@ -62,12 +64,23 @@ class GeminiController {
         throw new Error("Usuario no encontrado");
       }
 
+      const historialSnapshot = await db.collection("usuarios").doc(userId).collection("historial").get();
+
+      const historial = [];
+      historialSnapshot.forEach(doc => {
+        const data = doc.data();
+        const favoritaText = data.favorita ? " y es favorita" : "";
+        historial.push(`${data.name}: ${data.puntuacion} puntos${favoritaText}`.trim());
+      });
+      
+      const historialPrompt = historial.join(", ");
+
       const userData = userDoc.data();
       console.log("Datos del usuario:", userData);
 
       let listaPrompteable = null;
 
-  if(usaStock){
+    if(usaStock){
       const stockSnapshot = await db
         .collection("usuarios")
         .doc(userId)
@@ -96,6 +109,7 @@ class GeminiController {
         listaPrompteable = productosPrompt
     }
 
+      //Busca restricciones de todos los comensales y las une en un mismo string
       const userRestrictions = userData.persona.restricciones || [];
       let allRestrictions = [...new Set(userRestrictions)];
 
@@ -124,11 +138,12 @@ class GeminiController {
           }
         }
         console.log("Restricciones combinadas:", allRestrictions);
+        allRestrictions = allRestrictions.filter(restriccion => restriccion !== "Ninguna");
+        console.log("Restricciones filtradas:", allRestrictions);
         cantidadPersonas += comensales.length;
       }
       console.log(`${cantidadPersonas} comensales en total`);      
       const restriccionesPrompt = allRestrictions.join(", ");
-      
 
       let prompt = `
           Tengo la siguiente lista de ingredientes con sus respectivas cantidades: ${listaPrompteable}
@@ -141,6 +156,12 @@ class GeminiController {
 
       if (allRestrictions.length > 0) {
         prompt += ` Tener en cuenta las restricciones de las personas: ${restriccionesPrompt}.`;
+      }
+
+      if (historial.length > 0) {
+        prompt += ` 
+        Este es el historial de recetas anteriores con sus puntuaciones (del 1 al 5) y si son favoritas, tenelas en cuenta: ${historialPrompt}.
+        No repitas NINGUNA receta de las que esta en el historial y evita sugerir recetas similares a aquellas con baja puntuacion (menor a 3)`;
       }
 
       const result = await model.generateContent(prompt);
@@ -257,16 +278,15 @@ const calcularCosto = async (recipes) => {
           .collection("productos")
           .doc(ingrediente.description)
           .get();
+
+          let costoIngrediente = 0;
         if (productoDoc.exists) {
           const productoData = productoDoc.data();
-          let costoIngrediente;
-
           if (productoData.costoEstimado !== undefined) {
             console.log(
               `Costo estimado de ${ingrediente.description}: ${productoData.costoEstimado}`
             );
-            costoIngrediente =
-              productoData.costoEstimado * ingrediente.quantity;
+            costoIngrediente = productoData.costoEstimado * ingrediente.quantity;
           } else {
             console.log(
               `El ingrediente ${ingrediente.description} no tiene costoEstimado asignado. Asignando 5 pesos.`
@@ -276,15 +296,15 @@ const calcularCosto = async (recipes) => {
         } else {
           // Si el producto no se encuentra en la colección, sumar una parte proporcional de costoTotal
           console.log(`${ingrediente.description} no se encuentra en la db`);
-          costoTotal += costoTotal * (1 / recipe.ingredients.length);
+          costoIngrediente= costoTotal * (1 / recipe.ingredients.length);
         }
+        costoTotal += costoIngrediente
       } catch (error) {
         console.error(
           `Error al obtener el costo del ingrediente ${ingrediente.description}: ${error.message}`
         );
       }
     }
-    costoTotal = costoTotal;
     console.log(`Costo estimado para ${recipe.name}: ${costoTotal}`);
     recipe.costoEstimado = parseFloat(costoTotal.toFixed(0));
   }

@@ -9,7 +9,7 @@ router.post("/confirmation", authMiddleware, StockController.confirmacionUsuario
 router.post("/manual", authMiddleware, StockController.agregarProductoPorNombre);
 
 router.get("/", authMiddleware, StockController.obtenerStock);
-router.get("/:nombreProducto", authMiddleware, StockController.obtenerProducto);
+router.get("/search", authMiddleware, StockController.buscarProductos);
 
 router.put("/:nombreProducto", authMiddleware, StockController.actualizarProducto);
 router.delete("/:nombreProducto", authMiddleware, StockController.eliminarProducto);
