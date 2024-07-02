@@ -56,7 +56,8 @@ class PersonaController {
       ) {
         throw new Error("ID de persona inválido.");
       }
-
+      console.log(`Persona por crear:`)
+      console.log(persona)
       const docRef = db.collection("personas").doc(persona.id);
       await docRef.set(persona);
       console.log("Documento escrito con ID: ", persona.id);

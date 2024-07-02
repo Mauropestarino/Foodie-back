@@ -12,7 +12,7 @@ admin.initializeApp({
 const db = admin.firestore();
 
 //const model = await createModel();
-const genAI = new GoogleGenerativeAI(config.generativeAIKey);
+const genAI = new GoogleGenerativeAI("AIzaSyBGB8MC95KLV4Ttl64YHiYjpkh9oQIwsDI");
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 async function determinarUnidad(item) {
@@ -59,6 +59,13 @@ async function determinarUnidad(item) {
 
 async function obtenerItems(page) {
   return await page.evaluate(async () => {
+
+    function formatText(text) {
+      return (
+        text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
+      );
+    };
+
     const texts = [];
     const filterContents = document.querySelectorAll('.valtech-carrefourar-search-result-0-x-filterContent');
     const lastFilterContent = filterContents[filterContents.length - 1];
@@ -75,7 +82,8 @@ async function obtenerItems(page) {
       }
 
       filterItems.forEach((label) => {
-        texts.push(label.textContent.trim());
+        const formattedText = formatText(label.textContent.trim());
+        texts.push(formattedText);
       });
     }
     return texts;

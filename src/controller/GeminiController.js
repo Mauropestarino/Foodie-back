@@ -138,6 +138,8 @@ class GeminiController {
           }
         }
         console.log("Restricciones combinadas:", allRestrictions);
+        allRestrictions = allRestrictions.filter(restriccion => restriccion !== "Ninguna");
+        console.log("Restricciones filtradas:", allRestrictions);
         cantidadPersonas += comensales.length;
       }
       console.log(`${cantidadPersonas} comensales en total`);      

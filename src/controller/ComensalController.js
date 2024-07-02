@@ -15,21 +15,24 @@ class ComensalController {
 
     try {
       const personaReq = { nombre, apellido, edad, restricciones };
+      console.log(personaReq)
       const personaResult = await PersonaController.crearPersona(personaReq);
       console.log(personaResult);
 
-      const persona = personaResult;
+      const personaData=personaResult.persona;
+      console.log(personaData)
       // Agregar persona a la colección grupoFamiliar del usuario
-      const comensalesRef = db
+      const comensalesRef = await db
         .collection("usuarios")
         .doc(userId)
         .collection("grupoFamiliar")
-        .doc(persona.id);
+        .doc(personaData.id);
 
-      await comensalesRef.set({...persona, creacion: new Date().toISOString()});
+      await comensalesRef.set({...personaData, creacion: new Date().toISOString()});
+      console.log(comensalesRef)
 
-      console.log(`Persona ${persona.id} agregada al grupo de comensales del usuario ${userId}.`);
-      return res.status(201).json({ message: "Persona agregada al grupo de comensales.", persona });
+      console.log(`Persona ${personaData.id} agregada al grupo de comensales del usuario ${userId}.`);
+      return res.status(201).json({ message: "Persona agregada al grupo de comensales.", personaData });
     } catch (e) {
       console.error("Error al agregar la persona al grupo de comensales: ", e.message);
       return res.status(400).json({ error: e.message });
