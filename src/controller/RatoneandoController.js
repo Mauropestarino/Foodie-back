@@ -7,7 +7,7 @@ class RatoneandoController {
  async buscarProductoEnAPI(ean) {
     try {
       console.log(`Buscando producto en API Ratoneando con EAN: ${ean}`);
-      const response = await axios.get(`https://api.ratoneando.ar/?q=${ean}`, {
+      const response = await axios.get(`https://go.ratoneando.ar/?q=${ean}`, {
         headers: {
           'Referer': 'https://ratoneando.ar/'
         }
